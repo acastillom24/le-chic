@@ -36,9 +36,14 @@
         th {
             background-color: #f2f2f2;
         }
-        #downloadBtn {
+        #downloadBtn, #resetBtn {
             display: none;
             margin-top: 20px;
+            margin-right: 10px;
+        }
+        #errorMessage {
+            color: red;
+            margin-top: 10px;
         }
     </style>
 </head>
@@ -49,6 +54,8 @@
         Arrastra y suelta tu archivo Excel aquí o
         <input type="file" id="fileInput" accept=".xlsx, .xls">
     </div>
+
+    <div id="errorMessage"></div>
 
     <div id="resultContainer">
         <table id="resultTable">
@@ -61,6 +68,7 @@
             <tbody id="resultBody"></tbody>
         </table>
         <button id="downloadBtn">Descargar Resumen</button>
+        <button id="resetBtn">Reiniciar</button>
     </div>
 
     <script>
@@ -68,6 +76,8 @@
         const fileInput = document.getElementById('fileInput');
         const resultBody = document.getElementById('resultBody');
         const downloadBtn = document.getElementById('downloadBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const errorMessage = document.getElementById('errorMessage');
 
         // Prevenir comportamiento por defecto de arrastrar
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -97,6 +107,7 @@
 
         dropZone.addEventListener('drop', handleDrop, false);
         fileInput.addEventListener('change', handleFile, false);
+        resetBtn.addEventListener('click', resetApp, false);
 
         function handleDrop(e) {
             const dt = e.dataTransfer;
@@ -116,16 +127,27 @@
         function processFile(file) {
             const reader = new FileReader();
             reader.onload = function(e) {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, {type: 'array'});
-                const firstSheetName = workbook.SheetNames[0];
-                
-                // Asumimos que los headers están en la fila 8 (índice 7)
-                const worksheet = workbook.Sheets[firstSheetName];
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, { range: 7 });
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const firstSheetName = workbook.SheetNames[0];
+                    
+                    // Asumimos que los headers están en la fila 8 (índice 7)
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { range: 7 });
 
-                const brandSummary = summarizeByBrand(jsonData);
-                displayResults(brandSummary);
+                    // Validar columnas
+                    if (!jsonData[0].hasOwnProperty('Producto') || !jsonData[0].hasOwnProperty('Sub Total')) {
+                        throw new Error("El archivo debe contener las columnas 'Producto' y 'Sub Total'.");
+                    }
+
+                    const brandSummary = summarizeByBrand(jsonData);
+                    displayResults(brandSummary);
+                    errorMessage.textContent = '';
+                } catch (error) {
+                    errorMessage.textContent = `Error: ${error.message}`;
+                    resetApp();
+                }
             };
             reader.readAsArrayBuffer(file);
         }
@@ -134,20 +156,29 @@
             const brandTotals = {};
 
             data.forEach(row => {
-                // Extraer marca de la columna 'producto'
-                const producto = row['producto'] || '';
-                const marca = producto.split('-').pop().trim();
-                const subtotal = parseFloat(row['subtotal'] || 0);
+                // Filtrar filas que no sean "Totales"
+                if (row['Precio'] !== "Totales") {
+                    // Extraer marca de la columna 'Producto'
+                    const producto = row['Producto'] || '';
+                    const marca = producto.split('-').pop().trim();
+                    
+                    // Convertir Sub Total a número, reemplazando ',' por '.'
+                    const subtotal = parseFloat(
+                        (row['Sub Total'] || '0')
+                            .toString()
+                            .replace(',', '.')
+                    );
 
-                if (marca) {
-                    brandTotals[marca] = (brandTotals[marca] || 0) + subtotal;
+                    if (marca) {
+                        brandTotals[marca] = (brandTotals[marca] || 0) + subtotal;
+                    }
                 }
             });
 
             // Convertir a array para facilitar despliegue
             return Object.entries(brandTotals)
-                .map(([marca, subtotal]) => ({ Marca: marca, Subtotal: subtotal }))
-                .sort((a, b) => b.Subtotal - a.Subtotal);
+                .map(([marca, subtotal]) => ({ Marca: marca, 'Sub Total': subtotal }))
+                .sort((a, b) => b['Sub Total'] - a['Sub Total']);
         }
 
         function displayResults(brandSummary) {
@@ -160,11 +191,15 @@
                 const subtotalCell = row.insertCell(1);
 
                 marcaCell.textContent = item.Marca;
-                subtotalCell.textContent = item.Subtotal.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                subtotalCell.textContent = item['Sub Total'].toLocaleString('es-PE', { 
+                    minimumFractionDigits: 2, 
+                    maximumFractionDigits: 2 
+                });
             });
 
-            // Mostrar botón de descarga
-            downloadBtn.style.display = 'block';
+            // Mostrar botones de descarga y reset
+            downloadBtn.style.display = 'inline-block';
+            resetBtn.style.display = 'inline-block';
             downloadBtn.onclick = () => downloadResults(brandSummary);
         }
 
@@ -174,6 +209,14 @@
             XLSX.utils.book_append_sheet(workbook, worksheet, 'Resumen por Marca');
             
             XLSX.writeFile(workbook, 'Resumen_por_Marca.xlsx');
+        }
+
+        function resetApp() {
+            resultBody.innerHTML = '';
+            downloadBtn.style.display = 'none';
+            resetBtn.style.display = 'none';
+            fileInput.value = '';
+            errorMessage.textContent = '';
         }
     </script>
 </body>
