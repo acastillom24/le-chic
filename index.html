@@ -5,47 +5,7 @@
     <title>Resumen de Ventas por Marca</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.17.5/dist/xlsx.full.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        #dropZone {
-            border: 2px dashed #ccc;
-            border-radius: 20px;
-            width: 480px;
-            margin: 20px auto;
-            padding: 20px;
-            text-align: center;
-        }
-        #dropZone.dragover {
-            background-color: #f0f0f0;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
-        #downloadBtn, #resetBtn {
-            display: none;
-            margin-top: 20px;
-            margin-right: 10px;
-        }
-        #errorMessage {
-            color: red;
-            margin-top: 10px;
-        }
-    </style>
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
     <h1>Resumen de Ventas por Marca</h1>
@@ -63,6 +23,7 @@
                 <tr>
                     <th>Marca</th>
                     <th>Subtotal</th>
+                    <th>Subtotal + IGV</th>
                 </tr>
             </thead>
             <tbody id="resultBody"></tbody>
@@ -71,153 +32,9 @@
         <button id="resetBtn">Reiniciar</button>
     </div>
 
-    <script>
-        const dropZone = document.getElementById('dropZone');
-        const fileInput = document.getElementById('fileInput');
-        const resultBody = document.getElementById('resultBody');
-        const downloadBtn = document.getElementById('downloadBtn');
-        const resetBtn = document.getElementById('resetBtn');
-        const errorMessage = document.getElementById('errorMessage');
-
-        // Prevenir comportamiento por defecto de arrastrar
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, preventDefaults, false);
-        });
-
-        function preventDefaults(e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropZone.addEventListener(eventName, highlight, false);
-        });
-
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, unhighlight, false);
-        });
-
-        function highlight() {
-            dropZone.classList.add('dragover');
-        }
-
-        function unhighlight() {
-            dropZone.classList.remove('dragover');
-        }
-
-        dropZone.addEventListener('drop', handleDrop, false);
-        fileInput.addEventListener('change', handleFile, false);
-        resetBtn.addEventListener('click', resetApp, false);
-
-        function handleDrop(e) {
-            const dt = e.dataTransfer;
-            const files = dt.files;
-            handleFiles(files);
-        }
-
-        function handleFile(e) {
-            const files = e.target.files;
-            handleFiles(files);
-        }
-
-        function handleFiles(files) {
-            ([...files]).forEach(processFile);
-        }
-
-        function processFile(file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, {type: 'array'});
-                    const firstSheetName = workbook.SheetNames[0];
-                    
-                    // Asumimos que los headers están en la fila 8 (índice 7)
-                    const worksheet = workbook.Sheets[firstSheetName];
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { range: 7 });
-
-                    // Validar columnas
-                    if (!jsonData[0].hasOwnProperty('Producto') || !jsonData[0].hasOwnProperty('Sub Total')) {
-                        throw new Error("El archivo debe contener las columnas 'Producto' y 'Sub Total'.");
-                    }
-
-                    const brandSummary = summarizeByBrand(jsonData);
-                    displayResults(brandSummary);
-                    errorMessage.textContent = '';
-                } catch (error) {
-                    errorMessage.textContent = `Error: ${error.message}`;
-                    resetApp();
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        }
-
-        function summarizeByBrand(data) {
-            const brandTotals = {};
-
-            data.forEach(row => {
-                // Filtrar filas que no sean "Totales"
-                if (row['Precio'] !== "Totales") {
-                    // Extraer marca de la columna 'Producto'
-                    const producto = row['Producto'] || '';
-                    const marca = producto.split('-').pop().trim();
-                    
-                    // Convertir Sub Total a número, reemplazando ',' por '.'
-                    const subtotal = parseFloat(
-                        (row['Sub Total'] || '0')
-                            .toString()
-                            .replace(',', '.')
-                    );
-
-                    if (marca) {
-                        brandTotals[marca] = (brandTotals[marca] || 0) + subtotal;
-                    }
-                }
-            });
-
-            // Convertir a array para facilitar despliegue
-            return Object.entries(brandTotals)
-                .map(([marca, subtotal]) => ({ Marca: marca, 'Sub Total': subtotal }))
-                .sort((a, b) => b['Sub Total'] - a['Sub Total']);
-        }
-
-        function displayResults(brandSummary) {
-            // Limpiar resultados anteriores
-            resultBody.innerHTML = '';
-
-            brandSummary.forEach(item => {
-                const row = resultBody.insertRow();
-                const marcaCell = row.insertCell(0);
-                const subtotalCell = row.insertCell(1);
-
-                marcaCell.textContent = item.Marca;
-                subtotalCell.textContent = item['Sub Total'].toLocaleString('es-PE', { 
-                    minimumFractionDigits: 2, 
-                    maximumFractionDigits: 2 
-                });
-            });
-
-            // Mostrar botones de descarga y reset
-            downloadBtn.style.display = 'inline-block';
-            resetBtn.style.display = 'inline-block';
-            downloadBtn.onclick = () => downloadResults(brandSummary);
-        }
-
-        function downloadResults(brandSummary) {
-            const worksheet = XLSX.utils.json_to_sheet(brandSummary);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, 'Resumen por Marca');
-            
-            XLSX.writeFile(workbook, 'Resumen_por_Marca.xlsx');
-        }
-
-        function resetApp() {
-            resultBody.innerHTML = '';
-            downloadBtn.style.display = 'none';
-            resetBtn.style.display = 'none';
-            fileInput.value = '';
-            errorMessage.textContent = '';
-        }
-    </script>
+    <script src="js/file-handler.js"></script>
+    <script src="js/data-processor.js"></script>
+    <script src="js/ui-manager.js"></script>
+    <script src="js/main.js"></script>
 </body>
 </html>
