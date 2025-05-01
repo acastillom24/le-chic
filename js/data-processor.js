@@ -1,6 +1,6 @@
-// Data processor module
+// data-processor.js
+
 const DataProcessor = (() => {
-    // Brand categorization
     const BRAND_CATEGORIES = {
         "AVON - NATURA": ["AVON", "NATURA"],
         "CY'ZONE - ESIKA - L'BEL": ["ESIKA", "CY'ZONE", "L'BEL"]
@@ -19,13 +19,10 @@ const DataProcessor = (() => {
         const brandTotals = {};
 
         data.forEach(row => {
-            // Filtrar filas que no sean "Totales"
             if (row['Precio'] !== "Totales") {
-                // Extraer marca de la columna 'Producto'
                 const producto = row['Producto'] || '';
                 const marca = producto.split('-').pop().trim();
-                
-                // Convertir Sub Total a número, reemplazando ',' por '.'
+
                 const subtotal = parseFloat(
                     (row['Sub Total'] || '0')
                         .toString()
@@ -39,17 +36,34 @@ const DataProcessor = (() => {
             }
         });
 
-        // Convertir a array para facilitar despliegue
         return Object.entries(brandTotals)
-            .map(([marca, subtotal]) => ({ 
-                'Marca': marca, 
+            .map(([marca, subtotal]) => ({
+                'Marca': marca,
                 'Sub Total': subtotal,
-                'Subtotal + IGV': subtotal * igvRate 
+                'Subtotal + IGV': subtotal * igvRate
             }))
             .sort((a, b) => b['Sub Total'] - a['Sub Total']);
     }
 
+    function mapExampleToModel(data) {
+        return data.map(row => ({
+            "Código": row["CODIGO DE BARRA"] || "",
+            "Nombre": row["NOMBRE"] || "",
+            "Categoría": row["categoria"] || "",
+            "Marca": row["MARCA"] || "",
+            "Descripción": row["DESCRIPCION"] || "",
+            "Stock": row["STOCK"] || 0,
+            "Peso kg": "",
+            "Imagen": "",
+            "Precio 1": row["PRECIO"] || 0,
+            "Precio 2": "",
+            "Precio 3": "",
+            "Precio 4": ""
+        }));
+    }
+
     return {
-        summarizeByBrand
+        summarizeByBrand,
+        mapExampleToModel
     };
 })();

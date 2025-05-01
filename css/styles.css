@@ -44,3 +44,29 @@ th {
     color: red;
     margin-top: 10px;
 }
+
+/* Nuevos estilos para la tabla de vista previa */
+#tablaPreviewContainer {
+    max-width: 100%;
+    overflow-x: auto;
+    border: 1px solid #ddd;
+    padding: 0;
+    margin-bottom: 20px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+#tablaPreview {
+    width: auto;
+    min-width: 100%;
+    font-size: 1em;
+}
+
+#tablaPreview th, 
+#tablaPreview td {
+    min-width: 120px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    text-align: left;
+    white-space: nowrap;
+}
