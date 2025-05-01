@@ -1,6 +1,7 @@
-// File handler module
+// file-handler.js
+
 const FileHandler = (() => {
-    const IGV_RATE = 1.18; // 18% IGV in Peru
+    const IGV_RATE = 1.18;
 
     function preventDefaults(e) {
         e.preventDefault();
@@ -20,14 +21,14 @@ const FileHandler = (() => {
         reader.onload = function(e) {
             try {
                 const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, {type: 'array'});
+                const workbook = XLSX.read(data, { type: 'array' });
                 const firstSheetName = workbook.SheetNames[0];
-                
-                // Asumimos que los headers están en la fila 8 (índice 7)
                 const worksheet = workbook.Sheets[firstSheetName];
+
+                // Leer desde la fila 8 (índice 7)
                 const jsonData = XLSX.utils.sheet_to_json(worksheet, { range: 7 });
 
-                // Validar columnas
+                // Validación
                 if (!jsonData[0].hasOwnProperty('Producto') || !jsonData[0].hasOwnProperty('Sub Total')) {
                     throw new Error("El archivo debe contener las columnas 'Producto' y 'Sub Total'.");
                 }
@@ -41,7 +42,6 @@ const FileHandler = (() => {
     }
 
     function setupFileListeners(dropZone, fileInput, onFileProcessed, onError) {
-        // Prevenir comportamiento por defecto de arrastrar
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
             dropZone.addEventListener(eventName, preventDefaults, false);
         });
@@ -55,8 +55,7 @@ const FileHandler = (() => {
         });
 
         dropZone.addEventListener('drop', (e) => {
-            const dt = e.dataTransfer;
-            const files = dt.files;
+            const files = e.dataTransfer.files;
             processFile(files[0], onFileProcessed, onError);
         }, false);
 
@@ -66,9 +65,40 @@ const FileHandler = (() => {
         }, false);
     }
 
+    async function readExcelFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: "array" });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+
+                    // En pestaña 2 se asume que los datos comienzan desde la fila 1
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                    resolve(jsonData);
+                } catch (err) {
+                    reject(err);
+                }
+            };
+            reader.onerror = reject;
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    function exportToModelExcel(mappedData) {
+        const worksheet = XLSX.utils.json_to_sheet(mappedData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Hoja1");
+        XLSX.writeFile(workbook, "archivo_modelo.xlsx");
+    }
+
     return {
         setupFileListeners,
         processFile,
-        IGV_RATE
+        IGV_RATE,
+        readExcelFile,
+        exportToModelExcel
     };
 })();
