@@ -58,8 +58,8 @@ const UIManager = (() => {
         tablaBody.innerHTML = '';
         facturaInput.value = '';
         mensaje.textContent = '';
-        resetBtn2.style.display = 'none';
-        descargarBtn.style.display = 'none';
+        resetBtn2.disabled = true;
+        descargarBtn.disabled = true;
     }
 
     return {
