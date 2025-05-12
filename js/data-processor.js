@@ -7,11 +7,25 @@ const DataProcessor = (() => {
     };
 
     function categorizeBrand(marca) {
+        // Verificar por prefijos específicos primero
+        if (marca.startsWith("CZ ")) {
+            return "CY'ZONE - ESIKA - L'BEL";
+        }
+        if (marca.startsWith("ES ")) {
+            return "CY'ZONE - ESIKA - L'BEL";
+        }
+        if (marca.startsWith("AV ")) {
+            return "AVON - NATURA";
+        }
+
+        // Verificación adicional por coincidencia parcial (mantener el comportamiento anterior)
         for (const [category, brands] of Object.entries(BRAND_CATEGORIES)) {
             if (brands.some(brand => marca.toUpperCase().includes(brand))) {
                 return category;
             }
         }
+
+        // Si no coincide con ninguna categoría, devolver la marca original
         return marca;
     }
 
